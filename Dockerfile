@@ -12,7 +12,7 @@ RUN go mod download
 COPY . .
 RUN mkdir -p /out && \
     CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} \
-    go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/rgp .
+    go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/rgp ./cmd/rgp
 
 # 仅用于导出二进制，不产生最终镜像
 FROM scratch AS export

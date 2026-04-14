@@ -145,11 +145,12 @@ rgp strong --length 8
 
 ```
 .
-├── main.go           # 主程序（CLI 入口、gen/strong 子命令、generatePassword）
-├── strength.go       # 强密码检测模块（强度评估、generateStrongPassword）
-├── weakpasswords.go  # 内置常见弱密码字典
-├── main_test.go      # CLI 与核心函数测试
-├── strength_test.go  # 强度模块测试
+├── password/         # 核心库（可被其他 Go 项目 import）
+│   ├── password.go       # 字符集常量、Generate / GenerateStrong 等
+│   ├── strength.go       # 强密码评估（Assess、CalcEntropy）
+│   └── weakpasswords.go  # 内置常见弱密码字典
+├── cmd/rgp/          # CLI 入口
+│   └── main.go           # gen / strong 子命令、main()
 ├── go.mod            # Go 模块依赖
 ├── Makefile          # 构建脚本
 ├── Dockerfile        # Docker 多阶段构建

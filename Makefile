@@ -43,7 +43,7 @@ version:
 
 build:
 	@mkdir -p $(OUT_DIR)
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -trimpath -ldflags "$(LDFLAGS)" -o $(OUT_DIR)/$(BINARY) .
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -trimpath -ldflags "$(LDFLAGS)" -o $(OUT_DIR)/$(BINARY) ./cmd/rgp
 	@echo "已生成 $(OUT_DIR)/$(BINARY)（$(GOOS)/$(GOARCH)，版本 $(VERSION)）"
 
 ## 构建全部平台二进制，输出至 out/<os>_<arch>/rgp[.exe]
@@ -56,7 +56,7 @@ build-all:
 		$(eval DEST = $(OUT_DIR)/$(OS)_$(ARCH)/$(BINARY)$(EXT)) \
 		echo "构建 $(platform) -> $(DEST)" && \
 		mkdir -p $(OUT_DIR)/$(OS)_$(ARCH) && \
-		CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -trimpath -ldflags "$(LDFLAGS)" -o $(DEST) . && \
+		CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -trimpath -ldflags "$(LDFLAGS)" -o $(DEST) ./cmd/rgp && \
 	) true
 
 ## 使用 Docker 构建 Linux amd64 二进制（无需本地 Go 环境）

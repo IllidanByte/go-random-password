@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/alecthomas/kong"
@@ -378,70 +377,5 @@ func TestStrongIntegration_WithSpecialSafe(t *testing.T) {
 	c := parseStrongArgs(t, []string{"--special-safe"})
 	if !bool(c.SpecialSafe) {
 		t.Error("期望 SpecialSafe=true，但得到 false")
-	}
-}
-
-// ---- buildCharset 单元测试 ----
-
-// TestBuildCharset_SpecialSafe 测试 buildCharset 在 SpecialSafe 启用时输出正确字符集
-func TestBuildCharset_SpecialSafe(t *testing.T) {
-	got, err := buildCharset(false, false, false, false, true)
-	if err != nil {
-		t.Fatalf("不期望出错：%v", err)
-	}
-	if got != charSpecialSafe {
-		t.Errorf("期望字符集 %q，但得到 %q", charSpecialSafe, got)
-	}
-}
-
-// TestBuildCharset_SpecialSafeNotIncludedByDefault 测试全部禁用时字符集为空
-func TestBuildCharset_SpecialSafeNotIncludedByDefault(t *testing.T) {
-	got, err := buildCharset(false, false, false, false, false)
-	if err != nil {
-		t.Fatalf("不期望出错：%v", err)
-	}
-	if got != "" {
-		t.Errorf("期望空字符集，但得到 %q", got)
-	}
-}
-
-// TestBuildCharset_MutualExclusion 验证 --special 与 --special-safe 同时启用时 buildCharset 返回错误
-func TestBuildCharset_MutualExclusion(t *testing.T) {
-	_, err := buildCharset(false, false, false, true, true)
-	if err == nil {
-		t.Error("期望返回互斥错误，但未出错")
-	}
-}
-
-// TestBuildCharset_CharSpecialSafeDashFirst 验证 charSpecialSafe 中 '-' 位于首位
-func TestBuildCharset_CharSpecialSafeDashFirst(t *testing.T) {
-	if len(charSpecialSafe) == 0 || charSpecialSafe[0] != '-' {
-		t.Errorf("期望 charSpecialSafe 首字符为 '-'，实际为 %q", string(charSpecialSafe[0]))
-	}
-}
-
-// ---- generatePassword 单元测试 ----
-
-// TestGeneratePassword_EmptyCharset 验证空字符集时 generatePassword 返回错误
-func TestGeneratePassword_EmptyCharset(t *testing.T) {
-	_, err := generatePassword("", 10)
-	if err == nil {
-		t.Error("期望空字符集返回错误，但未出错")
-	}
-}
-
-// TestGeneratePassword_CharsFromSpecialSafeOnly 验证启用 --special-safe 时生成密码的所有字符均来自 charSpecialSafe
-func TestGeneratePassword_CharsFromSpecialSafeOnly(t *testing.T) {
-	const rounds = 200
-	for i := 0; i < rounds; i++ {
-		pwd, err := generatePassword(charSpecialSafe, 20)
-		if err != nil {
-			t.Fatalf("生成密码失败：%v", err)
-		}
-		for _, ch := range pwd {
-			if !strings.ContainsRune(charSpecialSafe, ch) {
-				t.Errorf("密码 %q 包含不在 charSpecialSafe 中的字符 %q", pwd, ch)
-			}
-		}
 	}
 }

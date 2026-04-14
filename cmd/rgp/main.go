@@ -1,23 +1,12 @@
 package main
 
 import (
-	"crypto/rand"
 	"fmt"
-	"math"
-	"math/big"
 	"os"
 	"strings"
 
+	"github.com/IllidanByte/go-random-password/password"
 	"github.com/alecthomas/kong"
-)
-
-// 各字符集常量
-const (
-	charNumbers     = "0123456789"
-	charLower       = "abcdefghijklmnopqrstuvwxyz"
-	charUpper       = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	charSpecial     = "`~!@#$%^&*()[{]}-_=+|;:'\",<.>/?"
-	charSpecialSafe = "-@#%^_+=.,"
 )
 
 // version 由构建时通过 -ldflags "-X main.version=xxx" 注入
@@ -69,26 +58,24 @@ func (cmd *GenCmd) Run() error {
 		return fmt.Errorf("生成数量必须大于 0")
 	}
 
-	charset, err := buildCharset(bool(cmd.Number), bool(cmd.Lower), bool(cmd.Upper), bool(cmd.Special), bool(cmd.SpecialSafe))
+	passwords, err := password.GenerateN(cmd.Length, cmd.Count, password.GenConfig{
+		Number:      bool(cmd.Number),
+		Lower:       bool(cmd.Lower),
+		Upper:       bool(cmd.Upper),
+		Special:     bool(cmd.Special),
+		SpecialSafe: bool(cmd.SpecialSafe),
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("生成密码失败：%w", err)
 	}
-	if len(charset) == 0 {
-		return fmt.Errorf("至少需要启用一种字符集")
-	}
-
-	for i := 0; i < cmd.Count; i++ {
-		pwd, err := generatePassword(charset, cmd.Length)
-		if err != nil {
-			return fmt.Errorf("生成密码失败：%w", err)
-		}
+	for _, pwd := range passwords {
 		fmt.Println(pwd)
 	}
 	return nil
 }
 
 // StrongCmd strong 子命令：强密码生成
-// 默认启用数字 + 小写字母 + 大写字母，可通过 --special / --special-safe 追加特殊字符集
+// 库层固定启用数字 + 小写字母 + 大写字母，可通过 --special / --special-safe 追加特殊字符集
 type StrongCmd struct {
 	Length      int       `short:"l" name:"length"       default:"20"   help:"密码长度（默认 20 位，最小 8 位）"`
 	Count       int       `short:"c" name:"count"        default:"1"    help:"生成密码数量（默认 1 个）"`
@@ -108,57 +95,24 @@ func (cmd *StrongCmd) Run() error {
 		return fmt.Errorf("生成数量必须大于 0")
 	}
 
-	// 强密码模式固定启用数字 + 小写 + 大写，用户可追加特殊字符集
-	charsets := []string{charNumbers, charLower, charUpper}
-	if cmd.Special {
-		charsets = append(charsets, charSpecial)
+	passwords, err := password.GenerateStrongN(cmd.Length, cmd.Count, password.StrongConfig{
+		Special:     bool(cmd.Special),
+		SpecialSafe: bool(cmd.SpecialSafe),
+	})
+	if err != nil {
+		return err
 	}
-	if cmd.SpecialSafe {
-		charsets = append(charsets, charSpecialSafe)
-	}
-
-	// 预校验：计算理论信息熵，确保所选参数可以生成"强"级密码
-	totalSize := 0
-	for _, cs := range charsets {
-		totalSize += len(cs)
-	}
-	entropy := float64(cmd.Length) * math.Log2(float64(totalSize))
-	if entropy < 60 {
-		minLen := int(math.Ceil(60 / math.Log2(float64(totalSize))))
-		return fmt.Errorf("当前参数信息熵不足（%.1f bits），需 ≥ 60 bits，建议最小长度 %d 位", entropy, minLen)
-	}
-
-	for i := 0; i < cmd.Count; i++ {
-		pwd, err := generateOneStrongPassword(charsets, cmd.Length)
-		if err != nil {
-			return err
-		}
+	for _, pwd := range passwords {
 		fmt.Println(pwd)
 	}
 	return nil
-}
-
-// generateOneStrongPassword 生成一个通过所有强密码检查的密码，最多重试 100 次
-func generateOneStrongPassword(charsets []string, length int) (string, error) {
-	const maxAttempts = 100
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		pwd, err := generateStrongPassword(charsets, length)
-		if err != nil {
-			return "", fmt.Errorf("生成密码失败：%w", err)
-		}
-		result := assessPassword(pwd)
-		if len(result.Issues) == 0 {
-			return pwd, nil
-		}
-	}
-	return "", fmt.Errorf("已重试 %d 次，无法生成满足所有强密码标准的密码，请检查参数", maxAttempts)
 }
 
 // CLI 顶层命令行结构
 var cli struct {
 	Version kong.VersionFlag `name:"version" short:"v" help:"打印版本号并退出"`
 	Gen     GenCmd           `cmd:"gen" help:"生成随机密码（普通模式）"`
-	Strong  StrongCmd        `cmd:"strong" help:"生成强密码（强密码模式，默认启用数字 + 大小写字母）"`
+	Strong  StrongCmd        `cmd:"strong" help:"生成强密码（强密码模式，固定包含数字 + 大小写字母）"`
 }
 
 func main() {
@@ -171,45 +125,4 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, "错误："+err.Error())
 		os.Exit(1)
 	}
-}
-
-// buildCharset 根据各字符集启用状态组合并返回字符集字符串
-func buildCharset(number, lower, upper, special, specialSafe bool) (string, error) {
-	if special && specialSafe {
-		return "", fmt.Errorf("--special 与 --special-safe 不能同时启用")
-	}
-	var charset string
-	if number {
-		charset += charNumbers
-	}
-	if lower {
-		charset += charLower
-	}
-	if upper {
-		charset += charUpper
-	}
-	if special {
-		charset += charSpecial
-	}
-	if specialSafe {
-		charset += charSpecialSafe
-	}
-	return charset, nil
-}
-
-// generatePassword 从指定字符集中随机生成指定长度的密码
-func generatePassword(charset string, length int) (string, error) {
-	if len(charset) == 0 {
-		return "", fmt.Errorf("字符集不能为空")
-	}
-	result := make([]byte, length)
-	charsetSize := big.NewInt(int64(len(charset)))
-	for i := range result {
-		n, err := rand.Int(rand.Reader, charsetSize)
-		if err != nil {
-			return "", err
-		}
-		result[i] = charset[n.Int64()]
-	}
-	return string(result), nil
 }

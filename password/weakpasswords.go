@@ -1,4 +1,4 @@
-package main
+package password
 
 // weakPasswords 内置 Top 1000 常见弱密码（统一小写存储，查询时也转小写）
 var weakPasswords = map[string]struct{}{
