@@ -1,162 +1,229 @@
-# rgp — 随机密码生成工具
+# rgp - Random Password Generator
 
-基于 Go 语言实现的命令行随机密码生成工具，功能参考 FeHelper 随机密码生成器。使用 `crypto/rand` 提供密码学安全的随机性。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-## 功能特性
+`rgp` is a command-line random password generator written in Go. It uses
+`crypto/rand` for cryptographically secure randomness and provides both regular
+random generation and strong password generation.
 
-- 支持数字、大小写字母、特殊符号、安全特殊符号五种字符集，可自由组合
-- 可指定密码长度与生成数量
-- `gen` 子命令：纯随机模式，字符均匀分布
-- `strong` 子命令：强密码模式，保证每个字符集各出现至少一次，并通过长度、熵值、弱密码字典、连续/重复字符等多项检查
-- 使用 `crypto/rand` 保证随机性，适合生产环境密码生成
-- 单一二进制，无运行时依赖
+## Features
 
-## 安装
+- Combine digits, lowercase letters, uppercase letters, symbols, and safe symbols
+- Configure password length and output count
+- `gen` command: uniformly samples characters from the selected character sets
+- `strong` command: guarantees required character-set coverage and validates
+  length, entropy, weak passwords, sequential characters, and repeated characters
+- Uses `crypto/rand` throughout for production-friendly randomness
+- Ships as a single binary with no runtime dependencies
 
-### 从源码构建
+## Installation
+
+### Build From Source
 
 ```bash
-# 需要 Go >= 1.20
+# Requires Go >= 1.20
 make build
-# 二进制输出至 out/rgp
+# Binary output: out/rgp
 ```
 
-### 通过 Docker 构建（无需本地 Go 环境）
+### Build With Docker
+
+Use this when you do not want to install Go locally.
 
 ```bash
 make docker-build
-# 输出 Linux amd64 二进制至 out/rgp
+# Linux amd64 binary output: out/rgp
 ```
 
-### 构建全平台二进制
+### Build All Platforms
 
 ```bash
 make build-all
-# 输出至 out/<os>_<arch>/rgp[.exe]
-# 支持：linux/amd64、linux/arm64、darwin/amd64、darwin/arm64、windows/amd64
+# Output: out/<os>_<arch>/rgp[.exe]
+# Supported: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 ```
 
-## 使用方法
+### Install With Go
 
 ```bash
-rgp <子命令> [参数]
+go install github.com/IllidanByte/go-random-password/cmd/rgp@latest
 ```
 
-### gen — 普通随机密码
-
-字符从合并字符集中均匀随机抽取，不对结果做强度限制。
+## Usage
 
 ```bash
-rgp gen [参数]
+rgp <command> [flags]
 ```
 
-| 参数 | 简写 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--length` | `-l` | `20` | 密码长度 |
-| `--count` | `-c` | `1` | 生成密码数量 |
-| `--number` | — | `true` | 是否包含数字 |
-| `--lower` | — | `true` | 是否包含小写字母 |
-| `--upper` | — | `true` | 是否包含大写字母 |
-| `--special` | — | `false` | 是否包含特殊符号（与 `--special-safe` 互斥）|
-| `--special-safe` | — | `false` | 是否包含安全特殊符号（与 `--special` 互斥）|
+### `gen` - Regular Random Passwords
+
+`gen` randomly samples characters from the merged character set. It does not
+guarantee that every enabled character set appears in the generated password.
 
 ```bash
-# 生成 1 个 20 位密码（默认：数字 + 小写 + 大写）
+rgp gen [flags]
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--length` | `-l` | `20` | Password length |
+| `--count` | `-c` | `1` | Number of passwords to generate |
+| `--number` | - | `true` | Include digits |
+| `--lower` | - | `true` | Include lowercase letters |
+| `--upper` | - | `true` | Include uppercase letters |
+| `--special` | - | `false` | Include symbols; mutually exclusive with `--special-safe` |
+| `--special-safe` | - | `false` | Include safe symbols; mutually exclusive with `--special` |
+
+```bash
+# Generate one 20-character password using digits + lowercase + uppercase
 rgp gen
 
-# 生成 5 个 16 位密码
+# Generate five 16-character passwords
 rgp gen --length 16 --count 5
 
-# 启用特殊符号
+# Include symbols
 rgp gen --special
 
-# 启用安全特殊符号
+# Include safe symbols
 rgp gen --special-safe
 
-# 仅使用数字
+# Use digits only
 rgp gen --lower false --upper false
 
-# 仅使用小写字母
+# Use lowercase letters only
 rgp gen --number false --upper false
 ```
 
-### strong — 强密码模式
+### `strong` - Strong Passwords
 
-默认启用数字 + 小写字母 + 大写字母，可追加特殊字符集。生成的密码保证通过以下所有检查：
+`strong` always enables digits, lowercase letters, and uppercase letters. You can
+optionally add one symbol set. Generated passwords must pass all checks below:
 
-1. **长度** ≥ 8 位
-2. **字符集覆盖** — 每个启用的字符集各出现至少一个字符
-3. **弱密码字典** — 不在内置常见弱密码列表中
-4. **无连续字符** — 不含 3 个及以上 ASCII 连续字符（如 `abc`、`123`）
-5. **无重复字符** — 不含 3 个及以上相同连续字符（如 `aaa`、`111`）
-6. **信息熵** ≥ 60 bits（达到"强"级）
+1. Length is at least 8 characters
+2. Every enabled character set appears at least once
+3. Password is not in the built-in weak password list
+4. No ASCII sequential run of 3 or more characters, such as `abc` or `123`
+5. No repeated run of 3 or more identical characters, such as `aaa` or `111`
+6. Entropy is at least 60 bits
 
 ```bash
-rgp strong [参数]
+rgp strong [flags]
 ```
 
-| 参数 | 简写 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--length` | `-l` | `20` | 密码长度（最小 8 位） |
-| `--count` | `-c` | `1` | 生成密码数量 |
-| `--special` | — | `false` | 追加特殊符号字符集（与 `--special-safe` 互斥）|
-| `--special-safe` | — | `false` | 追加安全特殊符号字符集（与 `--special` 互斥）|
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--length` | `-l` | `20` | Password length; minimum 8 |
+| `--count` | `-c` | `1` | Number of passwords to generate |
+| `--special` | - | `false` | Add the symbol character set; mutually exclusive with `--special-safe` |
+| `--special-safe` | - | `false` | Add the safe symbol character set; mutually exclusive with `--special` |
 
 ```bash
-# 生成 1 个强密码（数字 + 小写 + 大写，默认 20 位）
+# Generate one strong password using digits + lowercase + uppercase
 rgp strong
 
-# 生成 3 个强密码
+# Generate three strong passwords
 rgp strong --count 3
 
-# 追加特殊符号
+# Add symbols
 rgp strong --special
 
-# 追加安全特殊符号
+# Add safe symbols and set the length
 rgp strong --special-safe --length 16
 
-# 长度不足时工具会报错并给出建议
+# Too little entropy returns an error with a suggested minimum length
 rgp strong --length 8
-# 错误：当前参数信息熵不足（47.6 bits），需 ≥ 60 bits，建议最小长度 11 位
 ```
 
-### 信息熵评级
+## Entropy Levels
 
-| 等级 | 熵值 |
-|------|------|
-| 弱 | < 40 bits |
-| 一般 | 40 – 60 bits |
-| **强** | 60 – 80 bits |
-| **极强** | ≥ 80 bits |
+| Level | Entropy |
+|-------|---------|
+| Weak | < 40 bits |
+| Medium | 40-60 bits |
+| Strong | 60-80 bits |
+| Very strong | >= 80 bits |
 
-## 字符集说明
+## Character Sets
 
-| 字符集 | 内容 |
-|--------|------|
-| 数字 | `0123456789` |
-| 小写字母 | `abcdefghijklmnopqrstuvwxyz` |
-| 大写字母 | `ABCDEFGHIJKLMNOPQRSTUVWXYZ` |
-| 特殊符号 | `` `~!@#$%^&*()[{]}-_=+|;:'",<.>/? `` |
-| 安全特殊符号 | `-@#%^_+=.,` |
+| Set | Characters |
+|-----|------------|
+| Digits | `0123456789` |
+| Lowercase | `abcdefghijklmnopqrstuvwxyz` |
+| Uppercase | `ABCDEFGHIJKLMNOPQRSTUVWXYZ` |
+| Symbols | `` `~!@#$%^&*()[{]}-_=+|;:'",<.>/? `` |
+| Safe symbols | `-@#%^_+=.,` |
 
-> **gen 与 strong 的区别**：`gen` 仅保证字符来自指定字符集，不保证每种字符都出现；`strong` 额外保证每个字符集各出现至少一次，并通过完整的强度检查。
+> `gen` only guarantees that characters come from the selected character sets.
+> `strong` additionally guarantees character-set coverage and validates password
+> strength.
 
-## 项目结构
+## Library Usage
 
+The reusable core package lives in `password/` and does not depend on the CLI
+parser.
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/IllidanByte/go-random-password/password"
+)
+
+func main() {
+	pwd, err := password.GenerateStrong(20, password.StrongConfig{
+		SpecialSafe: true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(pwd)
+}
 ```
+
+Public APIs:
+
+```go
+func Generate(length int, cfg GenConfig) (string, error)
+func GenerateN(length, n int, cfg GenConfig) ([]string, error)
+func GenerateStrong(length int, cfg StrongConfig) (string, error)
+func GenerateStrongN(length, n int, cfg StrongConfig) ([]string, error)
+func Assess(pwd string) StrengthResult
+func CalcEntropy(pwd string) float64
+```
+
+## Project Layout
+
+```text
 .
-├── password/         # 核心库（可被其他 Go 项目 import）
-│   ├── password.go       # 字符集常量、Generate / GenerateStrong 等
-│   ├── strength.go       # 强密码评估（Assess、CalcEntropy）
-│   └── weakpasswords.go  # 内置常见弱密码字典
-├── cmd/rgp/          # CLI 入口
-│   └── main.go           # gen / strong 子命令、main()
-├── go.mod            # Go 模块依赖
-├── Makefile          # 构建脚本
-├── Dockerfile        # Docker 多阶段构建
-└── out/              # 构建输出目录
+├── password/         # Reusable core library
+│   ├── password.go       # Character sets and generation APIs
+│   ├── strength.go       # Strength assessment
+│   └── weakpasswords.go  # Built-in weak password list
+├── cmd/rgp/          # CLI entry point
+│   └── main.go           # gen / strong commands
+├── go.mod            # Go module
+├── Makefile          # Build scripts
+├── Dockerfile        # Docker multi-stage build
+└── out/              # Build output
 ```
 
-## 依赖
+## Development
 
-- [alecthomas/kong](https://github.com/alecthomas/kong) — 命令行参数解析
+```bash
+# Run all tests
+go test ./...
+
+# Run static checks
+go vet ./...
+gofmt -l .
+
+# Show the current injected version
+make version
+```
+
+## Dependency
+
+- [alecthomas/kong](https://github.com/alecthomas/kong) - command-line parser
